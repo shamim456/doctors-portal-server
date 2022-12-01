@@ -25,7 +25,7 @@ const verifyJWT = (req, res, next) => {
   const token = authHeader.split(" ")[1];
   // verify a token symmetric
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
-    if(err) {
+    if (err) {
       return res.status(403).send({ message: "Forbidden Access" });
     }
     req.decoded = decoded;
@@ -89,16 +89,15 @@ async function run() {
       const paitent = req.query.patientEmail;
       // console.log(paitent)
       const decodedEmail = req.decoded.email;
-      if(paitent === decodedEmail) {
+      if (paitent === decodedEmail) {
         const authorization = req.headers.authorization;
-      console.log("auth", authorization);
-      const query = { patientEmail: paitent };
-      const bookings = await bookingCollection.find(query).toArray();
-      return res.send(bookings);
+        console.log("auth", authorization);
+        const query = { patientEmail: paitent };
+        const bookings = await bookingCollection.find(query).toArray();
+        return res.send(bookings);
       } else {
         return res.status(403).send({ message: "Forbidden Access" });
       }
-      
     });
 
     app.post("/booking", async (req, res) => {
@@ -117,11 +116,10 @@ async function run() {
       return res.send({ success: false, booking: exists });
     });
 
-
-    app.get('/user', verifyJWT, async(req, res) => {
+    app.get("/user", verifyJWT, async (req, res) => {
       const users = await userCollection.find().toArray();
       res.send(users);
-    })
+    });
 
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -138,6 +136,38 @@ async function run() {
         { expiresIn: "1h" }
       );
       res.send({ result, token });
+    });
+
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email)
+      const user = await userCollection.findOne({ email: email });
+      const isAdmin = user.role === "Admin";
+      console.log(isAdmin)
+      res.send({ admin: isAdmin });
+    });
+
+    app.put("/user/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const requester = req.decoded.email;
+      const requestedAccount = await userCollection.findOne({
+        email: requester,
+      });
+      if (requestedAccount.role === "Admin") {
+        const filter = { email: email };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: { role: "Admin" },
+        };
+        const result = await userCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      } else {
+        res.status(403).send({ message: "Forbidden Access" });
+      }
     });
   } finally {
   }
